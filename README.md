@@ -153,27 +153,29 @@ data:
 
 ```yaml
 ---
-version: '2.4'
 services:
-    pwr_stat:
-        container_name: pwr_stat
-        hostname: pwr_stat
-        restart: always
-        image: dwinks/pwrstat_docker:latest
-        devices:
-            - /dev/bus/usb/003/003:/dev/bus/usb/001/001
-        volumes:
-            - /docker_binds/pwr_stat/pwrstat.yaml:/pwrstat.yaml:ro
-            # Optionally override the powerstatd configuration file
-            - /docker_binds/pwr_stat/pwrstatd.conf:/etc/pwrstatd.conf:ro
-        healthcheck:
-            test: ["CMD", "curl", "-sI", "http://127.0.0.1:5002/pwrstat"]
-            interval: 30s
-            timeout: 1s
-            retries: 24
-        privileged: true
-        network_mode: host
-
+  pwr_stat:
+    container_name: pwr_stat
+    hostname: pwr_stat
+    restart: unless-stopped # optional
+    image: dwinks/pwrstat_docker:latest
+    user: "1555:1555" # optional, see security section below
+    security_opt:
+      - no-new-privileges:true # optional, see security section below
+    devices:
+      - /dev/ups:/dev/ups # optional, see udev rules section below
+      # - /dev/bus/usb/003/003:/dev/bus/usb/001/001
+    volumes:
+      - /docker_binds/pwr_stat/pwrstat.yaml:/pwrstat.yaml:ro
+      # Optionally override the powerstatd configuration file
+      - /docker_binds/pwr_stat/pwrstatd.conf:/etc/pwrstatd.conf:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sI", "http://127.0.0.1:5002/pwrstat"]
+      interval: 30s
+      timeout: 2s
+      retries: 24
+    ports:
+      - 5002:5002
 ```
 
 ### Example config file
@@ -183,16 +185,44 @@ services:
 pwrstat_api: # optional
     log_level: WARNING # optional, may be 'DEBUG', 'WARNING', 'INFO', 'CRITICAL'
 mqtt:
-    broker: "192.168.1.100"
-    port: 1883
-    client_id: "pwrstat_mqtt"
-    topic: "sensors/basement/power/ups"
-    refresh: 3
-    qos: 0
-    retained: true
-    # username: "my_username" # optional
-    # password: "my_password" # optional, required if username specified
+  broker: "192.168.1.100"
+  port: 1883
+  client_id: "pwrstat_mqtt"
+  topic: "sensors/basement/power/ups"
+  refresh: 3
+  qos: 0
+  retained: true
+  # username: "my_username" # optional
+  # password: "my_password" # optional, required if username specified
 rest:
-    port: 5002
-    bind_address: "0.0.0.0"
+  port: 5002
+  bind_address: "0.0.0.0"
+```
+
+
+## Security
+
+You may wish to map the app user to a specific UID/GID on the host.
+
+```shell
+useradd -r -u 1555 -g 1555 pwrstat -s /sbin/nologin
+```
+
+## uDev rules
+
+You may wish to add a uDev rule to ensure the USB device is always mapped to the same path.
+This is not required, but may be useful if you have multiple USB devices.
+
+The following example would create a /dev/ups symlink to the USB device.
+
+```shell
+# /etc/udev/rules.d/99-usb-UPS.rules
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0764", ATTRS{idProduct}=="0501", SYMLINK+="ups", MODE="0664", GROUP="pwrstat"
+```
+
+and reload uDev rules after adding the file.
+
+```shell
+sudo udevadm control --reload-rules
+sudo udevadm trigger
 ```

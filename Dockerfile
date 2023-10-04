@@ -1,16 +1,42 @@
-FROM python:3.8-slim
+# Use an official Python runtime as a parent image
+FROM python:3.12-slim as builder
+
+# Metadata as described in the original Dockerfile
 LABEL Description="CyberPower PowerPanel"
 LABEL Maintainer="Daniel Winks"
 
-COPY *.py requirements.txt PPL-1.3.3-64bit.deb init.sh pwrstat.yaml /
+# Set environment variables
+ENV DEB="PPL_64bit_v1.4.1.deb"
 
-RUN apt-get update && apt-get dist-upgrade -y && \
-    apt-get install -y procps && \
-    apt-get install -y curl && \
-    chmod +x /init.sh && chmod +x /pwrstat_api.py && \
-    pip install --trusted-host pypi.python.org -r requirements.txt && \
-    apt-get install -y /PPL-1.3.3-64bit.deb && \
-    apt-get -y --purge autoremove && apt-get clean && \
-    rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/* /PPL-1.3.3-64bit.deb
+# Copy only the necessary files
+COPY *.py requirements.txt "${DEB}" init.sh pwrstat.yaml /build/
 
-CMD ["/init.sh"]
+# Install any needed packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    procps \
+    curl && \
+    pip install --no-cache-dir --trusted-host pypi.python.org -r /build/requirements.txt && \
+    apt-get install -y /build/"${DEB}" && \
+    apt-get -y --purge autoremove && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /build/"${DEB}"
+
+# Create a non-root user
+RUN useradd -ms /bin/bash app
+
+# Change to non-root user
+USER app
+
+# Copy necessary files to appropriate locations
+COPY --from=builder /build/*.py /build/init.sh /build/pwrstat.yaml /home/app/
+COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
+
+# Set permissions
+RUN chmod +x /home/app/init.sh /home/app/*.py
+
+# Set working directory
+WORKDIR /home/app
+
+# Run init.sh when the container launches
+CMD ["/home/app/init.sh"]

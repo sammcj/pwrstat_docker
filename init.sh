@@ -1,2 +1,3 @@
-#!/bin/bash
-/pwrstat_api.py
+#!/usr/bin/env bash
+
+python3 /home/app/pwrstat_api.py

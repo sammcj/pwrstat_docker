@@ -1,0 +1,4 @@
+# /etc/udev/rules.d/99-usb-UPS.rules
+
+# CyberPower UPS
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0764", ATTRS{idProduct}=="0501", SYMLINK+="ups", MODE="0664"
