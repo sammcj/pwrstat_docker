@@ -160,6 +160,11 @@ services:
     restart: unless-stopped # optional
     image: dwinks/pwrstat_docker:latest
     user: "1555:1555" # optional, see security section below
+    build:
+      context: .
+      dockerfile: Dockerfile
+      tags:
+        - dwinks/pwrstat_docker:latest
     security_opt:
       - no-new-privileges:true # optional, see security section below
     devices:
@@ -205,7 +210,8 @@ rest:
 You may wish to map the app user to a specific UID/GID on the host.
 
 ```shell
-useradd -r -u 1555 -g 1555 pwrstat -s /sbin/nologin
+groupadd pwrstat -g 1555
+useradd -u 1555 -g 1555 pwrstat -s /sbin/nologin
 ```
 
 ## uDev rules
@@ -219,6 +225,8 @@ The following example would create a /dev/ups symlink to the USB device.
 # /etc/udev/rules.d/99-usb-UPS.rules
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0764", ATTRS{idProduct}=="0501", SYMLINK+="ups", MODE="0664", GROUP="pwrstat"
 ```
+
+(Note the GROUP must match the group of the container user)
 
 and reload uDev rules after adding the file.
 

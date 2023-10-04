@@ -19,4 +19,4 @@ services:
       timeout: 1s
       retries: 24
     ports:
-      - 5002:5002
+      - 5002:5002 # API
